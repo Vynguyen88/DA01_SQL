@@ -14,3 +14,9 @@ join public.film as c on b.film_id = c.film_id
 where a.name = 'Drama' or a.name = 'Sports'
 order by c.length desc 
 --q4
+select a.name, count (a.name) as category_count from category as a 
+join public.film_category as b on a.category_id = b.category_id
+join public.film as c on b.film_id = c.film_id
+group by a.name
+order by category_count DESC
+--q5
