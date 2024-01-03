@@ -7,4 +7,10 @@ when replacement_cost between 20 and 24.99 then 'medium'
 else 'high'
 end as category,count (*) as so_luong
 from film group by category
---q3
+--q3: 
+select c.title, c.length, a.name from category as a 
+join public.film_category as b on a.category_id = b.category_id
+join public.film as c on b.film_id = c.film_id
+where a.name = 'Drama' or a.name = 'Sports'
+order by c.length desc 
+--q4
