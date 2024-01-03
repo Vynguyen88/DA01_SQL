@@ -20,3 +20,16 @@ join public.film as c on b.film_id = c.film_id
 group by a.name
 order by category_count DESC
 --q5
+select  first_name ||' ' || last_name as full_name, count(film_id) as total_film
+from public.actor as a 
+full join public.film_actor as b
+on a.actor_id = b.actor_id
+group by full_name 
+order by total_film DESC
+--q6
+select a.address, b.customer_id
+from address as a 
+left join customer as b
+on a.address_id = b.address_id
+where b.customer_id is null
+--q7
