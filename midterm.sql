@@ -33,3 +33,17 @@ left join customer as b
 on a.address_id = b.address_id
 where b.customer_id is null
 --q7
+select city, sum (amount) as city_income
+from city as a 
+join public.address as b on a.city_id = b.city_id
+join public.customer as c on b.address_id = c.address_id
+join public.payment as d on c.customer_id = d.customer_id
+group by city order by city_income DESC
+--q8
+select city ||','|| country, sum (amount)as city_income
+from city as a 
+join public.address as b on a.city_id = b.city_id
+join public.customer as c on b.address_id = c.address_id
+join public.payment as d on c.customer_id = d.customer_id
+join public.country as e on a.country_id = e.country_id
+group by city, country order by city_income DESC
