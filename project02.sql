@@ -69,3 +69,49 @@ WHERE oi.status NOT IN ('cancelled', 'Returned')
 GROUP BY category
 
 --6-.Hãy sử dụng câu lệnh SQL để tạo ra 1 dataset như mong muốn và lưu dataset đó vào VIEW đặt tên là vw_ecommerce_analyst--
+CREATE TABLE vw_ecommerce_analyst as
+(select 
+extract (year from a.Created_at) AS year,
+EXTRACT(MONTH FROM a.Created_at) AS month,
+c.category as Product_category,
+sum(b.sale_price* a.num_of_item)  as TPV,
+SUM(b.sale_price-c.cost) AS TPO,
+sum (round(c.cost,2) as total_cost,
+SUM(b.sale_price-c.cost) AS total_profit,
+sum (TPV / Total_cost) as profit_to_cost_rastio
+
+FROM bigquery-public-data.thelook_ecommerce.order as a
+INNER JOIN `bigquery-public-data.thelook_ecommerce.order_items` AS b
+ON a.order_ID = b.order_ID
+inner join `bigquery-public-data.thelook_ecommerce.order_items` as c
+on b.id = c.id
+group by month)
+  
+--revenue growh--
+WITH revenue AS (SELECT category, EXTRACT(MONTH FROM shipped_at) as month_num, FORMAT_DATE('%B', date(shipped_at)) as month_name, ROUND(SUM(sale_price),2) as revenue_per_month
+FROM `bigquery-public-data.thelook_ecommerce.order_items` as order_items
+INNER JOIN `bigquery-public-data.thelook_ecommerce.products` as products
+ON order_items.product_id = products.id
+WHERE status = 'Complete'
+AND date(shipped_at) >= DATE_SUB(DATE '2023-01-01', interval 1 year) AND date(shipped_at) < '2023-01-01'
+GROUP BY 1, 2, 3
+ORDER BY 1, 2 DESC),
+
+revenue_lag AS (
+SELECT category, month_num, month_name, revenue_per_month,
+LAG(revenue_per_month, 1) OVER(PARTITION BY category ORDER BY month_num) as LAG_revenue, ((revenue_per_month - (LAG(revenue_per_month, 1) OVER(PARTITION BY category ORDER BY month_num))) / LAG(revenue_per_month, 1) OVER(PARTITION BY category ORDER BY month_num)) * 100 as growth
+FROM revenue
+ORDER BY 1, 2 DESC)
+
+SELECT revenue.category, ROUND(AVG(revenue_lag.growth),2) as average_growth_category
+FROM revenue
+JOIN revenue_lag
+ON revenue.category = revenue_lag.category
+AND revenue.month_num = revenue_lag.month_num
+AND revenue.month_name = revenue_lag.month_name
+GROUP BY 1
+ORDER BY 2
+
+--oder growth--
+
+
