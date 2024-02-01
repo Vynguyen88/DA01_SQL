@@ -27,6 +27,10 @@ GROUP BY month_year
 ORDER BY month_year DESC;
 --insight: số lượng khách hàng tăng theo thời gian, nhưng AOV không biến động nhiều--
 --3. Nhóm khách hàng theo độ tuổi. Tìm các khách hàng có trẻ tuổi nhất và lớn tuổi nhất theo từng giới tính ( Từ 1/2019-4/2022)--??
+SELECT Gender, MIN(Age) as youngest , MAX(Age) as oldest, 
+FROM `bigquery-public-data.thelook_ecommerce.users` 
+group by Gender;
+
 --4. 4.Top 5 sản phẩm mỗi tháng. Thống kê top 5 sản phẩm có lợi nhuận cao nhất từng tháng (xếp hạng cho từng sản phẩm).--
 WITH
 main AS (
@@ -88,8 +92,9 @@ on b.id = c.id
 group by month)
   
 --revenue growh--
+
 WITH revenue AS (SELECT category, EXTRACT(MONTH FROM shipped_at) as month_num, FORMAT_DATE('%B', date(shipped_at)) as month_name, ROUND(SUM(sale_price),2) as revenue_per_month
-FROM `bigquery-public-data.thelook_ecommerce.order_items` as order_items
+FROM ` bigquery-public-data.thelook_ecommerce.order_items` as order_items
 INNER JOIN `bigquery-public-data.thelook_ecommerce.products` as products
 ON order_items.product_id = products.id
 WHERE status = 'Complete'
@@ -112,6 +117,42 @@ AND revenue.month_name = revenue_lag.month_name
 GROUP BY 1
 ORDER BY 2
 
---oder growth--
-
-
+---cohort---
+  WITH 
+cohort_items AS (
+    SELECT 
+    user_id,
+    MIN(DATE_TRUNC(DATE(created_at),MONTH)) AS cohort_month
+  FROM `bigquery-public-data.thelook_ecommerce.orders`
+  GROUP BY 1
+),
+users_activities AS 
+(SELECT 
+    orders.user_id user_id,  DATE_DIFF(DATE_TRUNC(DATE(orders.created_at),MONTH),cohort.cohort_month,MONTH) AS month_number
+  FROM `bigquery-public-data.thelook_ecommerce.orders` orders
+  LEFT JOIN cohort_items AS cohort ON orders.user_id = cohort.user_id
+  WHERE EXTRACT(year FROM cohort.cohort_month) = 2022
+  GROUP BY 1,2
+),
+cohort_size AS (
+  SELECT cohort_month,
+  COUNT(DISTINCT user_id) AS num_users
+  FROM cohort_items
+  GROUP BY 1
+  ORDER BY 1
+),
+retention AS (
+  SELECT cohort.cohort_month AS cohort_month,
+  us_act.month_number AS month_number,
+  COUNT(DISTINCT us_act.user_id) AS num_users
+  FROM users_activities AS us_act LEFT JOIN cohort_items AS cohort ON us_act.user_id = cohort.user_id
+  GROUP BY 1,2
+)
+SELECT 
+  FORMAT_DATE('%Y-%m', retention.cohort_month) Month_year,
+  retention.month_number,
+  retention.num_users total_users,
+  ROUND(CAST(retention.num_users as decimal)/cs.num_users*100,2) retention_percentage
+FROM retention LEFT JOIN cohort_size AS cs ON retention.cohort_month = cs.cohort_month
+WHERE retention.cohort_month is not null
+ORDER BY PARSE_DATE('%Y-%m',Month_year),2,3
